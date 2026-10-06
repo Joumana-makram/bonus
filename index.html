@@ -18,27 +18,31 @@ input{font:inherit;font-size:14px;border:4px solid #202020;padding:10px;width:10
 .bar{height:8px;background:#202020;width:100%}.bar i{display:block;height:100%;background:#e03c28}
 .cats{font-size:8px;color:#555;width:100%}.hide{display:none}
 </style></head><body>
-<script src="https://accounts.google.com/gsi/client" async defer onload="window.gsi=1;window.initG&&initG()"></script>
 <h1>⚔ POKÉ BONUS LEAGUE ⚔</h1>
 <div class="box" id="auth"></div>
 <div class="box hide" id="score"></div>
 <div class="box"><h2>▶ LEADERBOARD</h2><div id="board">Loading...</div></div>
 <script>
 /* ===== EDIT THIS ===== */
-const API = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
-const CLIENT_ID = "PASTE_YOUR_GOOGLE_CLIENT_ID_HERE";
+const API = "https://script.google.com/macros/s/AKfycbzfhtjbVZ8oclm5s9z7U588_TrhRuFK9eCzPqvUwbM4I2jQovHJDZK6G7gyH8uOqi3n/exec";
 const TEAMS = [["Tuna","#e03c28"],["A5tbot","#3050c8"],["Tmsa7","#38a038"],["7ot","#e8c000"],["Gmbri","#c050c0"],["Kaborya","#605090"]];
 const CATS = ["K4fi","Games","Dini","Mos3f","Thkafi"];
 /* ===================== */
 const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search);
 const t=parseInt(q.get("team"))-1, c=parseInt(q.get("cat"))-1;
-let token="",name="",err="";
+let pin="",name="";
+try{pin=localStorage.getItem("pin")||""}catch(e){}
+
+async function check(){
+  name="";
+  if(pin){try{const r=await (await fetch(API+"?action=check&pin="+encodeURIComponent(pin))).json();if(r.ok)name=r.name;else{pin="";try{localStorage.removeItem("pin")}catch(e){}}}catch(e){}}
+  render();
+}
 function render(){
   $("auth").innerHTML=name
     ?`Trainer: ${name} ✔ STAFF <button class="sm" onclick="logout()">LOGOUT</button>`
-    :`Staff? Sign in with Google to give points.<br><br><div id="gbtn"></div><div style="color:#e03c28;font-size:9px">${err}</div>`;
-  if(!name&&window.gsi&&window.google)google.accounts.id.renderButton($("gbtn"),{theme:"filled_blue",size:"large"});
+    :`Staff? Enter your PIN.<input id="pin" type="password" placeholder="PIN"><button onclick="login()">LOGIN</button><div id="am" style="color:#e03c28"></div>`;
   const ok=TEAMS[t]&&CATS[c];
   $("score").classList.toggle("hide",!name);
   if(name) $("score").innerHTML= ok
@@ -46,21 +50,16 @@ function render(){
       <input id="pts" type="number" inputmode="numeric" placeholder="Points (e.g. 10)"><button id="sb" onclick="submitScore()">SUBMIT</button><div id="m"></div>`
     :`Scan a team QR code to give points.`;
 }
-window.initG=()=>{google.accounts.id.initialize({client_id:CLIENT_ID,callback:r=>{token=r.credential;check()},auto_select:true});render()};
-async function check(){
-  name="";err="";
-  try{const r=await (await fetch(API+"?action=check&token="+encodeURIComponent(token))).json();if(r.ok)name=r.name;else{err=r.error;token=""}}catch(e){err="Network error"}
-  render();
-}
-window.logout=()=>{token="";name="";err="";if(window.google)google.accounts.id.disableAutoSelect();render()};
+window.login=()=>{pin=$("pin").value.trim();if(!pin)return;try{localStorage.setItem("pin",pin)}catch(e){}check().then(()=>{if(!name&&$("am"))$("am").textContent="Wrong PIN"})};
+window.logout=()=>{pin="";name="";try{localStorage.removeItem("pin")}catch(e){}render()};
 window.submitScore=async()=>{
   const p=parseInt($("pts").value),m=$("m");
   if(isNaN(p)){m.textContent="Enter a number!";return}
   $("sb").disabled=true;m.textContent="Saving...";
   try{
-    const r=await (await fetch(API,{method:"POST",body:JSON.stringify({token,team:t+1,cat:c+1,points:p})})).json();
+    const r=await (await fetch(API,{method:"POST",body:JSON.stringify({pin,team:t+1,cat:c+1,points:p})})).json();
     if(r.ok){m.style.color="#38a038";m.textContent=`✔ ${p} pts added to ${TEAMS[t][0]}!`;$("pts").value="";load()}
-    else{m.style.color="#e03c28";m.textContent=r.error;if(/expired|signed/i.test(r.error)){name="";token="";err=r.error;setTimeout(render,1500)}}
+    else{m.style.color="#e03c28";m.textContent=r.error}
   }catch(e){m.style.color="#e03c28";m.textContent="Network error, try again"}
   $("sb").disabled=false;
 };
@@ -75,5 +74,5 @@ async function load(){
       <div class="cats">${CATS.map((n,k)=>n+": "+matrix[i][k]).join(" | ")}</div></div>`).join("");
   }catch(e){$("board").textContent="Can't load scores. Check connection."}
 }
-render();if(window.gsi)initG();load();setInterval(load,10000);
+check();load();setInterval(load,10000);
 </script></body></html>
